@@ -96,7 +96,8 @@ For the Percona Mongodb Operator both approach were tested:
 
 They both worked, we get successfull backup and restore but the second approach won't be supported
 by Percona, and on large dataset you may be unaware of unconsistencies, having the database restarting 
-does not mean it's guaranteed with zeo data loss. On the other hand the first approach is using the official backup and restore api
+does not mean it's guaranteed with zero data loss. On the other hand the first approach is using the 
+official backup and restore api supported by Percona.
 
 
 # Let's test it 
@@ -105,7 +106,7 @@ does not mean it's guaranteed with zeo data loss. On the other hand the first ap
 
 In this demo the backup are sent to an AWS S3 bucket but the operator support Azure blob and other S3 compatible service.
 
-Let's defined for the S3 bucket the backup location, you'll need to change it line 446-450 -n `cr.yaml`.
+Let's define for the S3 bucket the backup location, you'll need to change it line 465-472 in `cr.yaml`.
 - `AWS_S3_ACCESS_KEY_ID` and `AWS_S3_SECRET_ACCESS_KEY` according to your setting.
 - `REGION` the region of your bucket for instance eu-west-3
 - `BUCKET_NAME` the name of you bucket for instance my-bucket
@@ -161,7 +162,8 @@ db.ticker.insert(  {createdAt: new Date(), randomdata: "qstygshgqsfxxtqsfgqfhjqh
 db.ticker.find({}).sort({createdAt:-1}).limit(1)
 ```
 
-In order to test Point In Time Restore (PITR) create a ticker pod that add new entry every seconds.
+Create a ticker pod that add new entry every seconds so that you compare the date of the backup 
+and the date of the last entries.
 
 ```
 MONGODB_DATABASE_ADMIN_PASSWORD=$(oc get secret my-cluster-name-secrets -ojsonpath='{.data.MONGODB_DATABASE_ADMIN_PASSWORD}'|base64 -d)
@@ -206,7 +208,7 @@ oc get psmdb-backup
 
 # Simulate disaster and disaster recovery 
 
-## Case 1. you still have the namespace but you want to recover only the database
+## Case 1. You still have the namespace but you want to recover only the database
 
 To simulate a disaster let's delete the cluster and all its pvc 
 
@@ -225,7 +227,7 @@ At the end of the process you should see a psmdb-restore
 oc get psmdb-restore
 ```
 
-## Case 2. you lose the namespace or recover on another cluster
+## Case 2. You lose the namespace or recover on another cluster
 
 Import the restore point with an importPolicy 
 
@@ -257,9 +259,9 @@ your previous backup or by listing the content of you bucket, here is an example
 apiVersion: psmdb.percona.com/v1
 kind: PerconaServerMongoDBRestore
 metadata:
-  name: restore2
+  name: restore-manual
 spec:
-  clusterName: minimal-cluster
+  clusterName: my-cluster-name
   backupSource:
     destination: s3://mcourcy-feesh/demo/mcourcy/percona/mongodb/my-cluster-name/2023-04-03T07:46:17Z 
     s3:
@@ -271,10 +273,13 @@ spec:
 
 # Uninstall the demo
 
+Remove completly the demo  by executing 
+
 ```
 oc delete psmdb-restore --all
 oc delete psmdb-backup --all
 oc delete psmdb --all
-oc delete --server-side -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.14.0/deploy/bundle.yaml
+oc delete -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.14.0/deploy/bundle.yaml
 oc delete ns mcourcy-mongodb-percona
+oc delete -f psmdb-bp.yaml
 ```
