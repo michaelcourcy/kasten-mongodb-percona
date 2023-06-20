@@ -119,21 +119,21 @@ Let's create in this order :
 - the cluster 
 
 ```
-oc create ns mcourcy-mongodb-percona
-oc project mcourcy-mongodb-percona
-oc apply --server-side -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.14.0/deploy/bundle.yaml
-oc create secret generic s3-secret --from-literal AWS_ACCESS_KEY_ID=$AWS_S3_ACCESS_KEY_ID --from-literal AWS_SECRET_ACCESS_KEY=$AWS_S3_SECRET_ACCESS_KEY
-oc create -f cr.yaml
+kubectl create ns mcourcy-mongodb-percona
+kubectl project mcourcy-mongodb-percona
+kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.14.0/deploy/bundle.yaml
+kubectl create secret generic s3-secret --from-literal AWS_ACCESS_KEY_ID=$AWS_S3_ACCESS_KEY_ID --from-literal AWS_SECRET_ACCESS_KEY=$AWS_S3_SECRET_ACCESS_KEY
+kubectl create -f cr.yaml
 ```
 
 Wait for all the pods to be ready
 ```
-oc get pods
+kubectl get pods
 ```
 
 check the status of the mongodb cluster
 ```
-oc get psmdb
+kubectl get psmdb
 ```
 
 ## Insert and read data in the cluster 
@@ -141,9 +141,9 @@ oc get psmdb
 Once MongoDB is running, you can populate it with some data. Let's add a collection called "ticker":
 
 ```bash
-MONGODB_DATABASE_ADMIN_PASSWORD=$(oc get secret my-cluster-name-secrets -ojsonpath='{.data.MONGODB_DATABASE_ADMIN_PASSWORD}'|base64 -d)
-MONGODB_DATABASE_ADMIN_USER=$(oc get secret my-cluster-name-secrets -ojsonpath='{.data.MONGODB_DATABASE_ADMIN_USER}'|base64 -d)
-oc run -i --rm --tty percona-client \
+MONGODB_DATABASE_ADMIN_PASSWORD=$(kubectl get secret my-cluster-name-secrets -ojsonpath='{.data.MONGODB_DATABASE_ADMIN_PASSWORD}'|base64 -d)
+MONGODB_DATABASE_ADMIN_USER=$(kubectl get secret my-cluster-name-secrets -ojsonpath='{.data.MONGODB_DATABASE_ADMIN_USER}'|base64 -d)
+kubectl run -i --rm --tty percona-client \
     --image=percona/percona-server-mongodb:6.0.4-3 \
     --env=MONGODB_DATABASE_ADMIN_PASSWORD=$MONGODB_DATABASE_ADMIN_PASSWORD \
     --env=MONGODB_DATABASE_ADMIN_USER=$MONGODB_DATABASE_ADMIN_USER \
@@ -166,9 +166,9 @@ Create a ticker pod that add new entry every seconds so that you compare the dat
 and the date of the last entries.
 
 ```
-MONGODB_DATABASE_ADMIN_PASSWORD=$(oc get secret my-cluster-name-secrets -ojsonpath='{.data.MONGODB_DATABASE_ADMIN_PASSWORD}'|base64 -d)
-MONGODB_DATABASE_ADMIN_USER=$(oc get secret my-cluster-name-secrets -ojsonpath='{.data.MONGODB_DATABASE_ADMIN_USER}'|base64 -d)
-oc run percona-ticker \
+MONGODB_DATABASE_ADMIN_PASSWORD=$(kubectl get secret my-cluster-name-secrets -ojsonpath='{.data.MONGODB_DATABASE_ADMIN_PASSWORD}'|base64 -d)
+MONGODB_DATABASE_ADMIN_USER=$(kubectl get secret my-cluster-name-secrets -ojsonpath='{.data.MONGODB_DATABASE_ADMIN_USER}'|base64 -d)
+kubectl run percona-ticker \
     --image=percona/percona-server-mongodb:6.0.4-3 \
     --env=MONGODB_DATABASE_ADMIN_PASSWORD=$MONGODB_DATABASE_ADMIN_PASSWORD \
     --env=MONGODB_DATABASE_ADMIN_USER=$MONGODB_DATABASE_ADMIN_USER \
@@ -177,7 +177,7 @@ oc run percona-ticker \
 
 Follow the insertion of the data 
 ```
-oc logs percona-ticker -f 
+kubectl logs percona-ticker -f 
 ```
 
 Reuse the percona-client to check you have a new entry every second, execute this command multiple times.
@@ -189,8 +189,8 @@ db.ticker.find({}).sort({createdAt:-1}).limit(1)
 ## Install and configure the blueprint 
 
 ```
-oc create -f psmdb-bp.yaml 
-oc annotate psmdb my-cluster-name kanister.kasten.io/blueprint=psmdb-bp 
+kubectl create -f psmdb-bp.yaml 
+kubectl annotate psmdb my-cluster-name kanister.kasten.io/blueprint=psmdb-bp 
 ```
 
 ## Create a backup policy 
@@ -203,7 +203,7 @@ And run it once.
 
 At the end of the policy run you should see a new perconaservermongodbbackup object 
 ```
-oc get psmdb-backup
+kubectl get psmdb-backup
 ```
 
 # Simulate disaster and disaster recovery 
@@ -213,9 +213,9 @@ oc get psmdb-backup
 To simulate a disaster let's delete the cluster and all its pvc 
 
 ```
-oc delete psmdb --all
-oc delete po percona-ticker
-oc delete pvc --all 
+kubectl delete psmdb --all
+kubectl delete po percona-ticker
+kubectl delete pvc --all 
 ```
 
 Now go to the restore point and restore by just restoring : 
@@ -224,7 +224,7 @@ Now go to the restore point and restore by just restoring :
 
 At the end of the process you should see a psmdb-restore
 ```
-oc get psmdb-restore
+kubectl get psmdb-restore
 ```
 
 ## Case 2. You lose the namespace or recover on another cluster
@@ -233,19 +233,19 @@ Import the restore point with an importPolicy
 
 recreate the namespace and reinstall the operator
 ```
-oc create ns mcourcy-mongodb-percona
-oc project mcourcy-mongodb-percona
-oc apply --server-side -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.14.0/deploy/bundle.yaml
+kubectl create ns mcourcy-mongodb-percona
+kubectl config set-context --current --namespace=mcourcy-mongodb-percona
+kubectl apply --server-side -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.14.0/deploy/bundle.yaml
 ```
 
 Reinstall the blueprint but without the restore action 
 If it's the same cluster 
 ```
-oc replace -f psmdb-bp-without-restore.yaml
+kubectl replace -f psmdb-bp-without-restore.yaml
 ```
 If it's a new cluster 
 ```
-oc create -f psmdb-bp-without-restore.yaml
+kubectl create -f psmdb-bp-without-restore.yaml
 ```
 
 
@@ -276,10 +276,10 @@ spec:
 Remove completly the demo  by executing 
 
 ```
-oc delete psmdb-restore --all
-oc delete psmdb-backup --all
-oc delete psmdb --all
-oc delete -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.14.0/deploy/bundle.yaml
-oc delete ns mcourcy-mongodb-percona
-oc delete -f psmdb-bp.yaml
+kubectl delete psmdb-restore --all
+kubectl delete psmdb-backup --all
+kubectl delete psmdb --all
+kubectl delete -f https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/v1.14.0/deploy/bundle.yaml
+kubectl delete ns mcourcy-mongodb-percona
+kubectl delete -f psmdb-bp.yaml
 ```
